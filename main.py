@@ -1,0 +1,58 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from proxy_logic import connect_client, disconnect_client
+
+app = Flask(__name__)
+CORS(app)
+# Глобальная переменная для хранения подключенных клиентов
+active_clients = set()
+
+
+@app.route('/api/connect', methods=['POST'])
+def handle_connect():
+    """Обработчик подключения клиента"""
+    try:
+        client_ip = request.remote_addr
+        # Отправляем запрос на подключение в proxy_logic
+        connect_client(client_ip)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Client {client_ip} authorized to connect to proxy on localhost:8888",
+            "active_clients": len(active_clients)
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
+
+
+@app.route('/api/disconnect', methods=['POST'])
+def handle_disconnect():
+    """Обработчик отключения клиента"""
+    try:
+        client_ip = request.remote_addr
+        # Отправляем запрос на отключение в proxy_logic
+        disconnect_client(client_ip)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Disconnected connection for {client_ip}",
+            "active_clients": len(active_clients)
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
+
+
+if __name__ == '__main__':
+    # Запускаем аддон
+    try:
+        app.run('localhost', 8080)
+    except KeyboardInterrupt:
+        pass

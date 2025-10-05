@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "303-proxy",
+  "version": "1.0",
+  "description": "Прокси на Python",
+  "icons": {
+    "48": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "webRequest",
+    "storage",
+    "http://МОЙ_URL/",
+    "https://МОЙ_URL/"
+  ],
+  "host_permissions": [
+    "http://МОЙ_URL/"
+  ]
+}
