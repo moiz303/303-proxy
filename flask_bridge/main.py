@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from proxy_logic import connect_client, disconnect_client
+from proxy_logic.proxy_logic import connect_client, disconnect_client
 
 app = Flask(__name__)
 CORS(app)
@@ -50,9 +50,6 @@ def handle_disconnect():
         })
 
 
-if __name__ == '__main__':
-    # Запускаем аддон
-    try:
-        app.run('localhost', 8080)
-    except KeyboardInterrupt:
-        pass
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "active_clients": len(active_clients)})
