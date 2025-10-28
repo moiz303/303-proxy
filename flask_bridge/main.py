@@ -1,11 +1,20 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from proxy_logic.proxy_logic import connect_client, disconnect_client
+
+import os, sys
+
+sys.path.append('/app')  # Добавляем корень проекта
+
+from proxy_logic.proxy_core import connect_client, disconnect_client
+
+
 
 app = Flask(__name__)
 CORS(app)
 # Глобальная переменная для хранения подключенных клиентов
 active_clients = set()
+
+PROXY_SERVER_URL = os.getenv('PROXY_SERVER_URL', 'http://localhost:8888')
 
 
 @app.route('/api/connect', methods=['POST'])

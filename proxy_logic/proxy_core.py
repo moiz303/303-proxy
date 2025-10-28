@@ -23,7 +23,7 @@ def disconnect_client(client_ip):
 async def handle_client_proxy(reader, writer):
     """Обработка клиента прокси-сервера с поддержкой HTTPS"""
     addr = writer.get_extra_info('peername')
-    print(f"{dt.datetime.now().strftime("%H:%M:%S")} Подключен клиент: {addr[0]}: {addr[1]}")
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Подключен клиент: {addr[0]}: {addr[1]}")
 
     client_id = f"{addr[0]}:{addr[1]}"
     active_connections[client_id] = writer
@@ -32,7 +32,7 @@ async def handle_client_proxy(reader, writer):
         # 1. Получаем HTTP-запрос от клиента
         request_data = await reader.read(4096)
         request = request_data.decode('utf-8')
-        print(f"{dt.datetime.now().strftime("%H:%M:%S")} Получен запрос:\n{request}")
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Получен запрос:\n{request}")
 
         # Проверяем, не обращается ли клиент к самому прокси
         if 'Host: 127.0.0.1:8888' in request or 'Host: localhost:8888' in request:
@@ -83,7 +83,7 @@ async def handle_client_proxy(reader, writer):
 
     finally:
         active_connections.pop(client_id, None)
-        print(f"{dt.datetime.now().strftime("%H:%M:%S")} Клиент {addr[0]}: {addr[1]} отключен")
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {addr[0]}: {addr[1]} отключен")
         writer.close()
         await writer.wait_closed()
         if 'remote_writer' in locals():
@@ -114,8 +114,7 @@ async def start_proxy_server(host: str='localhost', port: int=8888):
     server = await asyncio.start_server(handle_client_proxy, host, port)
 
     addr = server.sockets[0].getsockname()
-    print(f"{dt.datetime.now().strftime("%H:%M:%S")} Прокси запущен на http://{
-    addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Прокси запущен на http://{addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
 
     async with server:
         await server.serve_forever()

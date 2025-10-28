@@ -2,19 +2,23 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Копируем зависимости и устанавливаем их
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Копируем исходный код
+# Копируем ВСЕ из корня проекта (благодаря context: . в docker-compose)
 COPY . .
 
-# Создаем непривилегированного пользователя для безопасности
+# Устанавливаем зависимости для Flask-связки
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Добавляем папку proxy_core в Python path
+ENV PYTHONPATH="/app/proxy_logic:${PYTHONPATH}"
+
+# Переходим в папку flask_bridge для работы
+WORKDIR /app/flask_bridge
+
+# Создаем пользователя для безопасности
 RUN useradd -m -r appuser && chown -R appuser /app
 USER appuser
 
-# Открываем порт Flask
 EXPOSE 8080
 
-# Запускаем приложение через gunicorn
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+# Запускаем приложение
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]

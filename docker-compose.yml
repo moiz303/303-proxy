@@ -1,9 +1,11 @@
 version: '3.8'
 
 services:
-  # Основной сервер (proxy_logic)
-  proxy_server:
-    build: ./proxy_server
+  # Основной сервер (proxy_core)
+  proxy_logic:
+    build:
+      context: .                    # ⬅️ КОНТЕКСТ - КОРНЕВАЯ ПАПКА
+      dockerfile: proxy_logic/Dockerfile
     ports:
       - "8888:8888"
     environment:
@@ -14,14 +16,16 @@ services:
 
   # Flask-связка для расширения
   flask_bridge:
-    build: ./flask_bridge
+    build:
+      context: .                    # ⬅️ КОНТЕКСТ - КОРНЕВАЯ ПАПКА
+      dockerfile: flask_bridge/Dockerfile
     ports:
       - "8080:8080"
     environment:
-      - PROXY_SERVER_URL=http://proxy_server:8888  # Используем Docker DNS
+      - proxy_logic_URL=http://proxy_logic:8888  # Используем Docker DNS
       - FLASK_ENV=production
     depends_on:
-      - proxy_server
+      - proxy_logic
     restart: unless-stopped
     networks:
       - extension_network
