@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const connectButton = document.getElementById('connectButton');
   const statusElement = document.getElementById('status');
-  const serverUrl = 'http://мой_сервер:8080/api'; // ВПИСАТЬ МОЙ СЕРВЕР!!!!!!
+  const serverUrl = 'http://72.56.72.131:8080/api';
 
   // Проверяем сохранённое состояние при загрузке
   const { isConnected } = await chrome.storage.local.get('isConnected');

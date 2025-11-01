@@ -35,7 +35,7 @@ async def handle_client_proxy(reader, writer):
         print(f"{dt.datetime.now().strftime('%H:%M:%S')} Получен запрос:\n{request}")
 
         # Проверяем, не обращается ли клиент к самому прокси
-        if 'Host: 127.0.0.1:8888' in request or 'Host: localhost:8888' in request:
+        if 'Host: 72.56.72.131:8888' in request:
             # Отправляем простую страницу-заглушку
             response = """HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
                     <html><body><h1>Proxy Server Running</h1>
@@ -54,7 +54,7 @@ async def handle_client_proxy(reader, writer):
                 port = int(port)
             else:
                 host, port = host_port, 443
-            
+
             # Отправляем подтверждение туннеля
             response = "HTTP/1.1 200 Connection established\r\n\r\n"
             writer.write(response.encode())
@@ -69,7 +69,7 @@ async def handle_client_proxy(reader, writer):
 
         # 3. Подключаемся к целевому серверу
         remote_reader, remote_writer = await asyncio.open_connection(host, port)
-        
+
         # Для HTTP отправляем исходный запрос
         if request_data:
             remote_writer.write(request_data)
@@ -137,7 +137,7 @@ async def main(host:str, port:int):
 if __name__ == '__main__':
     try:
         # Запускаем прокси-сервер в фоновом режиме
-        asyncio.run(main('localhost', 8888))
-        result = {"status": "success", "message": "Proxy server started on http://localhost:8888"}
+        asyncio.run(main('72.56.72.131', 8888))
+        result = {"status": "success", "message": "Proxy server started on http://72.56.72.131:8888"}
     except KeyboardInterrupt:
         pass
