@@ -14,6 +14,6 @@ WORKDIR /app/proxy_logic
 RUN useradd -m -r appuser && chown -R appuser /app
 USER appuser
 
-EXPOSE 8888
+EXPOSE 5050
 
 CMD ["python", "proxy_core.py"]

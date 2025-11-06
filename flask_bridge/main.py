@@ -14,7 +14,7 @@ CORS(app)
 # Глобальная переменная для хранения подключенных клиентов
 active_clients = set()
 
-PROXY_SERVER_URL = os.getenv('PROXY_SERVER_URL', 'http://72.56.72.131:8888')
+PROXY_SERVER_URL = os.getenv('PROXY_SERVER_URL', 'http://72.56.72.131:5050')
 
 
 @app.route('/api/connect', methods=['POST'])
@@ -27,7 +27,7 @@ def handle_connect():
 
         return jsonify({
             "status": "success",
-            "message": f"Client {client_ip} authorized to connect to proxy on server:8888",
+            "message": f"Client {client_ip} authorized to connect to proxy on server:5050",
             "active_clients": len(active_clients)
         })
 

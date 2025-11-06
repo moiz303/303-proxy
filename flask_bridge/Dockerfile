@@ -18,7 +18,7 @@ WORKDIR /app/flask_bridge
 RUN useradd -m -r appuser && chown -R appuser /app
 USER appuser
 
-EXPOSE 8080
+EXPOSE 5000
 
 # Запускаем приложение
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]

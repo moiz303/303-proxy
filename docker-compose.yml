@@ -1,13 +1,12 @@
-version: '3.8'
-
 services:
   # Основной сервер (proxy_core)
   proxy_logic:
+    #image: moiz303/proxy-core:production
     build:
-      context: .                    # ⬅️ КОНТЕКСТ - КОРНЕВАЯ ПАПКА
-      dockerfile: proxy_logic/Dockerfile
+      context: .
+      dockerfile: /proxy_logic/Dockerfile
     ports:
-      - "8888:8888"
+      - "5050:5050"
     environment:
       - FLASK_ENV=production
     restart: unless-stopped
@@ -16,13 +15,14 @@ services:
 
   # Flask-связка для расширения
   flask_bridge:
+    #image: moiz303/proxy-flask:production
     build:
-      context: .                    # ⬅️ КОНТЕКСТ - КОРНЕВАЯ ПАПКА
-      dockerfile: flask_bridge/Dockerfile
+      context: .
+      dockerfile: /flask_bridge/Dockerfile
     ports:
-      - "8080:8080"
+      - "5000:5000"
     environment:
-      - proxy_logic_URL=http://proxy_logic:8888  # Используем Docker DNS
+      - proxy_logic_URL=http://proxy_logic:5050  # Используем Docker DNS
       - FLASK_ENV=production
     depends_on:
       - proxy_logic

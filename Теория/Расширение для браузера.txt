@@ -24,7 +24,7 @@ if __name__ == '__main__':
     Убедитесь, что API доступно (например, через curl или Postman):
     bash
 
-    curl.exe http://localhost:8888/api/process -X POST -H "Content-Type: application/json" -d '{"text": "Hello"}'
+    curl.exe http://localhost:5050/api/process -X POST -H "Content-Type: application/json" -d '{"text": "Hello"}'
 
 2. Создание расширения для браузера
 
