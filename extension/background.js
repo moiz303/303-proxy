@@ -16,6 +16,25 @@ async function connectToServer(url) {
     });
 
     if (response.ok) {
+      try {
+        // Пробуем разные методы подключения
+        const promises = [
+            fetch(`http://${new URL(serverUrl).hostname}:5050`).catch(e => 'failed'),
+            new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve('image_ok');
+                img.onerror = () => resolve('image_failed');
+                img.src = `http://${new URL(serverUrl).hostname}:5050/?test=` + Date.now();
+            })
+        ];
+
+        await Promise.all(promises);
+        console.log('Proxy connection attempts completed');
+
+    } catch (e) {
+        console.log('Proxy connection established with errors');
+    }
+
       console.log('Фоновое подключение успешно');
       await chrome.storage.local.set({ isConnected: true });
     }

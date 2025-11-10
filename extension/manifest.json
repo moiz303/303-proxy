@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "303-proxy",
-  "version": "1.0",
+  "version": "1.0.4",
   "description": "Прокси на Python",
   "icons": {
     "16": "icons/icon16.png",
@@ -22,9 +22,7 @@
   "permissions": [
     "activeTab",
     "webRequest",
-    "storage",
-    "http://72.56.72.131/",
-    "https://72.56.72.131/"
+    "storage"
   ],
   "host_permissions": [
     "http://72.56.72.131:5000/",

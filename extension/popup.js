@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const connectButton = document.getElementById('connectButton');
   const statusElement = document.getElementById('status');
-  const serverUrl = 'http://72.56.72.131:5000/api';
+  const apiUrl = 'https://72.56.72.131:5000';
+  const proxyUrl = 'https://72.56.72.131:5050'
 
   // Проверяем сохранённое состояние при загрузке
   const { isConnected } = await chrome.storage.local.get('isConnected');
@@ -29,7 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusElement.style.color = 'blue';
     connectButton.disabled = true;
 
-    const response = await fetch(`${serverUrl}/connect`, {
+    // Авторизация
+    const response = await fetch(`${apiUrl}/api/connect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'connect' })
@@ -40,6 +42,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const result = await response.json();
+
+    // Разогрев соединения и попытки подключения
+    try {
+        // Пробуем разные методы подключения
+        const promises = [
+            fetch(`${proxyUrl}`).catch(e => 'failed'),
+            new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve('image_ok');
+                img.onerror = () => resolve('image_failed');
+                img.src = `${proxyUrl}/?test=` + Date.now();
+            })
+        ];
+
+        await Promise.all(promises);
+        console.log('Proxy connection attempts completed');
+
+    } catch (e) {
+        console.log('Proxy connection established with errors');
+    }
+
     await chrome.storage.local.set({ isConnected: true });
     updateUI(true);
     console.log('Подключено успешно:', result);
@@ -52,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     connectButton.disabled = true;
 
     try {
-      const response = await fetch(`${serverUrl}/disconnect`, {
+      const response = await fetch(`${apiUrl}/api/disconnect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'disconnect' })

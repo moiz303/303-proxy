@@ -8,7 +8,6 @@ def connect_client(client_ip):
     """Авторизуем клиента для подключения к прокси"""
     if not hasattr(connect_client, 'authorized_clients'):
         connect_client.authorized_clients = set()
-
     connect_client.authorized_clients.add(client_ip)
     print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_ip} авторизован для подключения")
 
@@ -37,7 +36,7 @@ async def handle_client_proxy(reader, writer):
         # Проверяем, не обращается ли клиент к самому прокси
         if 'Host: 72.56.72.131:5050' in request:
             # Отправляем простую страницу-заглушку
-            response = """HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
+            response = """HTTPS/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
                     <html><body><h1>Proxy Server Running</h1>
                     <p>Configure your browser to use this proxy, don't access it directly.</p>
                     </body></html>"""
@@ -56,7 +55,7 @@ async def handle_client_proxy(reader, writer):
                 host, port = host_port, 443
 
             # Отправляем подтверждение туннеля
-            response = "HTTP/1.1 200 Connection established\r\n\r\n"
+            response = "HTTPS/1.1 200 Connection established\r\n\r\n"
             writer.write(response.encode())
             await writer.drain()
             request_data = b""  # Для HTTPS не передаем исходный запрос
@@ -114,7 +113,7 @@ async def start_proxy_server(host: str='localhost', port: int=5050):
     server = await asyncio.start_server(handle_client_proxy, host, port)
 
     addr = server.sockets[0].getsockname()
-    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Прокси запущен на http://{addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Прокси запущен на https://{addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
 
     async with server:
         await server.serve_forever()
@@ -138,6 +137,6 @@ if __name__ == '__main__':
     try:
         # Запускаем прокси-сервер в фоновом режиме
         asyncio.run(main('0.0.0.0', 5050))
-        result = {"status": "success", "message": "Proxy server started on http://72.56.72.131:5050"}
+        result = {"status": "success", "message": "Proxy server started on https://72.56.72.131:5050"}
     except KeyboardInterrupt:
         pass

@@ -1,12 +1,55 @@
 services:
+  # Nginx - обработкa http и https
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80" # HTTP редирект
+      - "5000:5000" # HTTPS обработка
+      - "5050:5050" # Основное тело прграммы
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/ssl/certs
+      - ./letsencrypt:/etc/letsencrypt
+      - ./webroot:/var/www/certbot
+    depends_on:
+      - proxy_logic
+      - flask_bridge
+    restart: unless-stopped
+    networks:
+      - extension_network
+
+  # Let's Encrypt - https сертификаты
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./letsencrypt:/etc/letsencrypt
+      - ./ssl:/ssl
+      - ./webroot:/var/www/certbot
+    command: >
+      sh -c "
+      # Если сертификатов нет - получаем первые
+      if [ ! -f /ssl/nginx.crt ]; then
+        echo '🔄 Получаем первые сертификаты...' &&
+        certbot certonly --webroot -w /var/www/certbot -d 72.56.72.131 --email your-email@example.com --agree-tos --non-interactive --force-renewal &&
+        cp /etc/letsencrypt/live/72.56.72.131/fullchain.pem /ssl/nginx.crt &&
+        cp /etc/letsencrypt/live/72.56.72.131/privkey.pem /ssl/nginx.key &&
+        echo '✅ Сертификаты получены'
+      fi &&
+      # Настраиваем cron для авто-обновления
+      echo '0 3 1 * * certbot renew --webroot -w /var/www/certbot --post-hook \"cp /etc/letsencrypt/live/72.56.72.131/fullchain.pem /ssl/nginx.crt && cp /etc/letsencrypt/live/72.56.72.131/privkey.pem /ssl/nginx.key && echo reload\"' > /etc/crontabs/root &&
+      crond -f
+      "
+    restart: unless-stopped
+    networks:
+      - extension_network
+
+
   # Основной сервер (proxy_core)
   proxy_logic:
-    #image: moiz303/proxy-core:production
-    build:
-      context: .
-      dockerfile: /proxy_logic/Dockerfile
-    ports:
-      - "5050:5050"
+    image: moiz303/proxy-core:1.0.2
+    #build:
+      #context: .
+      #dockerfile: /proxy_logic/Dockerfile
     environment:
       - FLASK_ENV=production
     restart: unless-stopped
@@ -15,12 +58,10 @@ services:
 
   # Flask-связка для расширения
   flask_bridge:
-    #image: moiz303/proxy-flask:production
-    build:
-      context: .
-      dockerfile: /flask_bridge/Dockerfile
-    ports:
-      - "5000:5000"
+    image: moiz303/proxy_flask:1.0.2
+    #build:
+      #context: .
+      #dockerfile: /flask_bridge/Dockerfile
     environment:
       - proxy_logic_URL=http://proxy_logic:5050  # Используем Docker DNS
       - FLASK_ENV=production
