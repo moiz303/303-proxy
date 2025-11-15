@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const connectButton = document.getElementById('connectButton');
   const statusElement = document.getElementById('status');
-  const apiUrl = 'https://72.56.72.131:5000';
-  const proxyUrl = 'https://72.56.72.131:5050'
+  const apiUrl = 'https://72-56-72-131.nip.io:5000';
+  const proxyUrl = 'https://72-56-72-131.nip.io:5050'
 
   // Проверяем сохранённое состояние при загрузке
   const { isConnected } = await chrome.storage.local.get('isConnected');
@@ -24,13 +24,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Функция подключения
   async function connectToServer() {
+  try {
     statusElement.textContent = 'Подключение...';
     statusElement.style.color = 'blue';
     connectButton.disabled = true;
 
-    // Авторизация
+    // 1. Авторизация на сервере
     const response = await fetch(`${apiUrl}/api/connect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,59 +43,66 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const result = await response.json();
 
-    // Разогрев соединения и попытки подключения
-    try {
-        // Пробуем разные методы подключения
-        const promises = [
-            fetch(`${proxyUrl}`).catch(e => 'failed'),
-            new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve('image_ok');
-                img.onerror = () => resolve('image_failed');
-                img.src = `${proxyUrl}/?test=` + Date.now();
-            })
-        ];
+    // 2. Если авторизация успешна - настраиваем прокси в браузере
+    if (result.status === 'success') {
+      // Отправляем сообщение в background.js чтобы включить прокси
+      await chrome.runtime.sendMessage({
+        action: 'enableProxy',
+        proxyHost: '72.56.72.131',
+        proxyPort: 5050
+      });
 
-        await Promise.all(promises);
-        console.log('Proxy connection attempts completed');
+      // 3. Сохраняем статус подключения
+      await chrome.storage.local.set({
+        isConnected: true,
+        proxyEnabled: true
+      });
 
-    } catch (e) {
-        console.log('Proxy connection established with errors');
+      updateUI(true);
+      console.log('✅ Подключено успешно и прокси настроен:', result);
+    } else {
+      throw new Error(result.message || 'Ошибка авторизации');
     }
 
-    await chrome.storage.local.set({ isConnected: true });
-    updateUI(true);
-    console.log('Подключено успешно:', result);
+  } catch (error) {
+    console.error('Ошибка подключения:', error);
+    statusElement.textContent = `Ошибка: ${error.message}`;
+    statusElement.style.color = 'red';
+    connectButton.disabled = false;
   }
+}
 
-  // Функция отключения с логированием
   async function disconnectFromServer() {
-    statusElement.textContent = 'Отключение...';
-    statusElement.style.color = 'orange';
-    connectButton.disabled = true;
+  try {
+    // 1. Отправляем сообщение в background.js чтобы отключить прокси
+    await chrome.runtime.sendMessage({ action: 'disableProxy' });
 
+    // 2. Уведомляем сервер об отключении (опционально)
     try {
-      const response = await fetch(`${apiUrl}/api/disconnect`, {
+      await fetch(`${apiUrl}/api/disconnect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'disconnect' })
       });
-
-      if (!response.ok) {
-        throw new Error(`Сервер ответил ошибкой: ${response.status}`);
-      }
-
-      const result = await response.json();
-      await chrome.storage.local.set({ isConnected: false });
-      updateUI(false);
-      console.log('Отключено успешно:', result);
-    } catch (error) {
-      console.error('Ошибка отключения:', error);
-      statusElement.textContent = `Ошибка отключения: ${error.message}`;
-      statusElement.style.color = 'red';
-      connectButton.disabled = false;
+    } catch (e) {
+      console.log('Сервер недоступен при отключении:', e.message);
     }
+
+    // 3. Обновляем статус
+    await chrome.storage.local.set({
+      isConnected: false,
+      proxyEnabled: false
+    });
+
+    updateUI(false);
+    console.log('✅ Отключено успешно');
+
+  } catch (error) {
+    console.error('Ошибка отключения:', error);
+    statusElement.textContent = `Ошибка отключения: ${error.message}`;
+    statusElement.style.color = 'red';
   }
+}
 
   // Обновление интерфейса
   function updateUI(connected) {

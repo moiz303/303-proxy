@@ -22,7 +22,7 @@ def disconnect_client(client_ip):
 async def handle_client_proxy(reader, writer):
     """Обработка клиента прокси-сервера с поддержкой HTTPS"""
     addr = writer.get_extra_info('peername')
-    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Подключен клиент: {addr[0]}: {addr[1]}")
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Подключен клиент: {addr[0]}:{addr[1]}")
 
     client_id = f"{addr[0]}:{addr[1]}"
     active_connections[client_id] = writer
@@ -35,8 +35,7 @@ async def handle_client_proxy(reader, writer):
 
         # Проверяем, не обращается ли клиент к самому прокси
         if 'Host: 72.56.72.131:5050' in request:
-            # Отправляем простую страницу-заглушку
-            response = """HTTPS/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
+            response = """HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
                     <html><body><h1>Proxy Server Running</h1>
                     <p>Configure your browser to use this proxy, don't access it directly.</p>
                     </body></html>"""
@@ -54,35 +53,66 @@ async def handle_client_proxy(reader, writer):
             else:
                 host, port = host_port, 443
 
-            # Отправляем подтверждение туннеля
-            response = "HTTPS/1.1 200 Connection established\r\n\r\n"
-            writer.write(response.encode())
-            await writer.drain()
-            request_data = b""  # Для HTTPS не передаем исходный запрос
+            print(f"🔐 HTTPS подключение к {host}:{port}")
+
+            try:
+                remote_reader, remote_writer = await asyncio.open_connection(host, port)
+
+                # Отправляем подтверждение туннеля
+                response = "HTTP/1.1 200 Connection Established\r\n\r\n"
+                writer.write(response.encode())
+                await writer.drain()
+
+                # Туннелируем данные
+                await asyncio.gather(
+                    forward_data(remote_reader, writer),  # сервер -> клиент
+                    forward_data(reader, remote_writer)  # клиент -> сервер
+                )
+
+            except Exception as e:
+                print(f"❌ Ошибка HTTPS подключения к {host}:{port}: {e}")
+                error_response = "HTTP/1.1 502 Bad Gateway\r\n\r\n"
+                writer.write(error_response.encode())
+                await writer.drain()
+
         else:
             # Тип HTTP: извлекаем хост из заголовка
-            host = request.split('Host: ')[1].split('\r\n')[0]
-            if ':80' in host:
-                host = host.replace(':80', '')
-            port = 80
+            host_line = next((line for line in request.split('\r\n') if line.startswith('Host: ')), None)
+            if host_line:
+                host = host_line.split(' ')[1].split(':')[0]
+                port = 80
 
-        # 3. Подключаемся к целевому серверу
-        remote_reader, remote_writer = await asyncio.open_connection(host, port)
+                print(f"🌐 HTTP подключение к {host}:{port}")
 
-        # Для HTTP отправляем исходный запрос
-        if request_data:
-            remote_writer.write(request_data)
-            await remote_writer.drain()
+                try:
+                    remote_reader, remote_writer = await asyncio.open_connection(host, port)
 
-        # 4. Перенаправляем трафик в обе стороны
-        await asyncio.gather(
-            forward_data(remote_reader, writer),  # сервер -> клиент
-            forward_data(reader, remote_writer)   # клиент -> сервер
-        )
+                    # Для HTTP отправляем исходный запрос
+                    remote_writer.write(request_data)
+                    await remote_writer.drain()
 
+                    # Туннелируем данные
+                    await asyncio.gather(
+                        forward_data(remote_reader, writer),  # сервер -> клиент
+                        forward_data(reader, remote_writer)  # клиент -> сервер
+                    )
+
+                except Exception as e:
+                    print(f"❌ Ошибка HTTP подключения к {host}:{port}: {e}")
+                    error_response = "HTTP/1.1 502 Bad Gateway\r\n\r\n"
+                    writer.write(error_response.encode())
+                    await writer.drain()
+            else:
+                print("❌ Не удалось определить Host в HTTP запросе")
+                error_response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+                writer.write(error_response.encode())
+                await writer.drain()
+
+    except Exception as e:
+        print(f"💥 Общая ошибка: {e}")
     finally:
         active_connections.pop(client_id, None)
-        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {addr[0]}: {addr[1]} отключен")
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {addr[0]}:{addr[1]} отключен")
         writer.close()
         await writer.wait_closed()
         if 'remote_writer' in locals():
@@ -113,7 +143,7 @@ async def start_proxy_server(host: str='localhost', port: int=5050):
     server = await asyncio.start_server(handle_client_proxy, host, port)
 
     addr = server.sockets[0].getsockname()
-    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Прокси запущен на https://{addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Прокси запущен на http://{addr[0] if addr[0] != '::1' else '127.0.0.1'}:{addr[1]}\n")
 
     async with server:
         await server.serve_forever()
