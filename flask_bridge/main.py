@@ -24,6 +24,7 @@ def handle_connect():
         client_ip = request.remote_addr
         # Отправляем запрос на подключение в proxy_logic
         connect_client(client_ip)
+        active_clients.add(client_ip)
 
         return jsonify({
             "status": "success",
@@ -45,6 +46,7 @@ def handle_disconnect():
         client_ip = request.remote_addr
         # Отправляем запрос на отключение в proxy_logic
         disconnect_client(client_ip)
+        active_clients.remove(client_ip)
 
         return jsonify({
             "status": "success",
