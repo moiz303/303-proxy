@@ -14,7 +14,7 @@ CORS(app)
 # Глобальная переменная для хранения подключенных клиентов
 active_clients = set()
 
-PROXY_SERVER_URL = os.getenv('PROXY_SERVER_URL', 'http://72.56.72.131:5050')
+PROXY_SERVER_URL = os.getenv('PROXY_SERVER_URL')
 
 
 @app.route('/api/connect', methods=['POST'])

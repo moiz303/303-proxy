@@ -167,6 +167,6 @@ if __name__ == '__main__':
     try:
         # Запускаем прокси-сервер в фоновом режиме
         asyncio.run(main('0.0.0.0', 5050))
-        result = {"status": "success", "message": "Proxy server started on https://72.56.72.131:5050"}
+        result = {"status": "success", "message": "Proxy server started successfully"}
     except KeyboardInterrupt:
         pass
