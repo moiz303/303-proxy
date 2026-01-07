@@ -1,8 +1,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const connectButton = document.getElementById('connectButton');
   const statusElement = document.getElementById('status');
-  const apiUrl = 'https://72-56-72-131.nip.io:5000';
-  const proxyUrl = 'https://72-56-72-131.nip.io:5050'
+
+  const ipAddress = CONFIG.IP_ADDRESS
+  const apiUrl = CONFIG.API_URL
+  const proxyUrl = CONFIG.PROXY_URL
+
+  // Отправляем конфиг в background
+  chrome.runtime.sendMessage({
+    type: 'SET_CONFIG',
+    config: CONFIG
+  }, (response) => {
+    if (response?.success) {
+      console.log('Config sent to background successfully');
+    }
+  });
 
   // Проверяем сохранённое состояние при загрузке
   const { isConnected } = await chrome.storage.local.get('isConnected');
@@ -48,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Отправляем сообщение в background.js чтобы включить прокси
       await chrome.runtime.sendMessage({
         action: 'enableProxy',
-        proxyHost: '72.56.72.131',
+        proxyHost: ipAddress,
         proxyPort: 5050
       });
 

@@ -1,17 +1,22 @@
-// Автоподключение при запуске браузера
-chrome.runtime.onStartup.addListener(async () => {
-  const { autoConnect, serverUrl } = await chrome.storage.local.get(['autoConnect', 'serverUrl']);
-
-  if (autoConnect && serverUrl) {
-    connectToServer(serverUrl);
-  }
-});
-
-// Используем chrome.proxy.settings
+let ipAddress = null
+let apiUrl = null
+let proxyUrl = null
 
 // Обработчик сообщений от popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('📨 Получено сообщение:', request);
+
+  if (request.type === 'SET_CONFIG') {
+    cachedConfig = request.config;
+
+    ipAddress  = cachedConfig.IP_ADDRESS
+    apiUrl = cachedConfig.API_URL
+    proxyUrl = cachedConfig.PROXY_URL
+
+    console.log('Config received in background:', cachedConfig.API_URL);
+    sendResponse({ success: true });
+    return true;
+  }
 
   if (request.action === 'enableProxy') {
     enableProxy(request.proxyHost, request.proxyPort)
@@ -80,7 +85,7 @@ async function connectToServer(url) {
 }
 
 // Функция для настройки прокси
-async function enableProxy(host = '72.56.72.131', port = 5050) {
+async function enableProxy(host = ipAddress, port = 5050) {
   return new Promise((resolve, reject) => {
     const config = {
       mode: "fixed_servers",
@@ -90,7 +95,7 @@ async function enableProxy(host = '72.56.72.131', port = 5050) {
           host: host,
           port: parseInt(port)
         },
-        bypassList: ["localhost", "127.0.0.1", "72.56.72.131"] // Исключаем сам сервер
+        bypassList: ["localhost", "127.0.0.1", ipAddress] // Исключаем сам сервер
       }
     };
 
