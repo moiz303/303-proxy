@@ -1,5 +1,4 @@
 .env
-flask_bridge/.env
 extension/config.js
 nginx.conf
 nginx_temp.conf

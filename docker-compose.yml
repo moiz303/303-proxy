@@ -3,6 +3,8 @@ services:
   certbot:
     image: certbot/certbot
     entrypoint: []
+    env_file:
+      - .env
     command:
       - /bin/sh
       - -c
@@ -13,25 +15,25 @@ services:
         
         certbot certonly --webroot \
         -w /var/www/certbot \
-        -d 72-56-72-131.nip.io \
-        --email noreply@gmail.com \
+        -d $${DOMAIN} \
+        --email $${EMAIL} \
         --agree-tos \
         --non-interactive
 
-        if [ -f /etc/letsencrypt/live/72-56-72-131.nip.io/fullchain.pem ]; then
-          cp /etc/letsencrypt/live/72-56-72-131.nip.io/fullchain.pem /ssl/nginx.crt
-          cp /etc/letsencrypt/live/72-56-72-131.nip.io/privkey.pem /ssl/nginx.key
+        if [ -f /etc/letsencrypt/live/$${DOMAIN}/fullchain.pem ]; then
+          cp /etc/letsencrypt/live/$${DOMAIN}/fullchain.pem /ssl/nginx.crt
+          cp /etc/letsencrypt/live/$${DOMAIN}/privkey.pem /ssl/nginx.key
           echo "✅ Сертификаты Let's Encrypt скопированы"
         else
           echo "❌ Создаем self-signed сертификаты..."
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout /ssl/nginx.key -out /ssl/nginx.crt \
-            -subj "/C=US/ST=State/L=City/O=Org/CN=72-56-72-131.nip.io"
+            -subj "/C=US/ST=State/L=City/O=Org/CN=${DOMAIN}"
           echo "⚠️ Используются self-signed сертификаты"
         fi
 
         echo "🔄 Настраиваем cron для автоматического обновления..."
-        echo '0 3 * * * certbot renew --manual --preferred-challenges dns --post-hook "cp /etc/letsencrypt/live/72-56-72-131.nip.io/fullchain.pem /ssl/nginx.crt && cp /etc/letsencrypt/live/72-56-72-131.nip.io/privkey.pem /ssl/nginx.key && echo reload 2>/dev/null || echo renew-failed"' > /etc/crontabs/root
+        echo '0 3 * * * certbot renew --manual --preferred-challenges dns --post-hook "cp /etc/letsencrypt/live/$${DOMAIN}/fullchain.pem /ssl/nginx.crt && cp /etc/letsencrypt/live/$${DOMAIN}/privkey.pem /ssl/nginx.key && echo reload 2>/dev/null || echo renew-failed"' > /etc/crontabs/root
         
         echo "🚀 Запускаем cron в фоне..."
         crond -f -d 8
@@ -73,6 +75,8 @@ services:
       - "80:80"    # HTTP редирект
       - "443:443"  # HTTPS
       - "5000:5000" # API
+    env_file:
+      - .env
     volumes:
       - ./nginx_temp.conf:/etc/nginx/nginx.conf  # Основной конфиг с SSL
       - ./ssl:/etc/ssl/certs
@@ -84,6 +88,42 @@ services:
     networks:
       - extension_network
 
+  # 6. PostgreSQL - общая база для обоих сервисов
+  postgres:
+    image: postgres:14-alpine
+    container_name: 303-postgres
+    restart: unless-stopped
+    hostname: postgres
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./shared_db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"  # Открываем порт для внешнего подключения (можно убрать в продакшене)
+    networks:
+      - 303-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      postgres 
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+
 networks:
   extension_network:
     driver: bridge
+  303-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.20.0.0/16}

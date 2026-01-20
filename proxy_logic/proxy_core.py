@@ -1,26 +1,130 @@
 import asyncio
 import datetime as dt
+import os
+from typing import Dict, Set, Optional
 
-active_connections = {}
+from database import db_manager
+from models import ClientConnection
+
+server_ip = os.getenv('SERVER_IP')
+
+active_connections: Dict[str, asyncio.StreamWriter] = {}
+authorized_clients: Set[str] = set()
 
 
-def connect_client(client_ip):
-    """Авторизуем клиента для подключения к прокси"""
-    if not hasattr(connect_client, 'authorized_clients'):
-        connect_client.authorized_clients = set()
-    connect_client.authorized_clients.add(client_ip)
-    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_ip} авторизован для подключения")
+async def connect_client(client_id: str, user_id: str,
+                         extension_id: str, client_ip: Optional[str] = None) -> bool:
+    """
+    Авторизуем клиента для подключения к прокси
+    """
+
+    if client_id in authorized_clients:
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} уже авторизован")
+        return False
+
+    authorized_clients.add(client_id)
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} авторизован для подключения")
+
+    try:
+        session = db_manager.get_session()
+
+        connection = ClientConnection(
+            client_id=client_id,  # ← Уникальный ID клиента
+            client_ip=client_ip,  # ← Больше информации о пользователе
+            user_id=user_id,
+            extension_id=extension_id
+        )
+        session.add(connection)
+        session.commit()
+
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} авторизован (User: {user_id})")
+
+        return True
+
+    except Exception as e:
+        print(f"Error creating connection record: {e}")
+        if session:
+            session.rollback()
+            return False
+    finally:
+        if session:
+            session.close()
+            return False
 
 
-def disconnect_client(client_ip):
-    """Закрываем соединение с прокси для клиента"""
-    for client_id, writer in list(active_connections.items()):
-        if client_id.startswith(client_ip):
-            writer.close()
+async def disconnect_client(client_id: str, user_id: Optional[str] = None) -> bool:
+    """
+    Закрываем соединение с прокси для клиента
+    """
+
+    # 1. Ищем среди активных подключений
+    connections_to_close = []
+
+    for active_id, writer in list(active_connections.items()):
+        # Сравниваем только часть до : если это IP:PORT
+        if ':' in client_id and ':' in active_id:
+            client_ip = client_id.split(':')[0]
+            active_ip = active_id.split(':')[0]
+            if client_ip == active_ip:
+                connections_to_close.append(active_id)
+        elif client_id == active_id:
+            connections_to_close.append(client_id)
+
+    # 2. Закрываем найденные соединения
+    closed_count = 0
+    for conn_id in connections_to_close:
+        if conn_id in active_connections:
+            try:
+                writer = active_connections[conn_id]
+                writer.close()
+                await writer.wait_closed()
+                del active_connections[conn_id]
+                closed_count += 1
+                print(f"{dt.datetime.now().strftime('%H:%M:%S')} Закрыто соединение: {conn_id}")
+            except Exception as e:
+                print(f"{dt.datetime.now().strftime('%H:%M:%S')} Ошибка при закрытии {conn_id}: {e}")
+
+    # 3. Удаляем из авторизованных
+    if client_id in authorized_clients:
+        authorized_clients.remove(client_id)
+        print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} удален из авторизованных")
+
+    try:
+        session = db_manager.get_session()
+
+        query = session.query(ClientConnection).filter(
+            ClientConnection.client_id == client_id,  # ← Ищем по client_id
+            ClientConnection.is_active == True
+        )
+
+        if user_id:
+            query = query.filter(ClientConnection.user_id == user_id)
+
+        connection = query.first()
+        if connection:
+            connection.is_active = False
+            session.commit()
+            print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} отключен")
+            return closed_count > 0 or client_id in authorized_clients
+        else:
+            print(f"Клиент {client_id} не найден")
+            return False
+
+    except Exception as e:
+        print(f"Error disconnecting client: {e}")
+        if session:
+            session.rollback()
+            return False
+    finally:
+        if session:
+            session.close()
+            return False
 
 
 async def handle_client_proxy(reader, writer):
-    """Обработка клиента прокси-сервера с поддержкой HTTPS"""
+    """
+    Обработка клиента прокси-сервера с поддержкой HTTPS
+    """
     addr = writer.get_extra_info('peername')
     print(f"{dt.datetime.now().strftime('%H:%M:%S')} Подключен клиент: {addr[0]}:{addr[1]}")
 
@@ -34,7 +138,7 @@ async def handle_client_proxy(reader, writer):
         print(f"{dt.datetime.now().strftime('%H:%M:%S')} Получен запрос:\n{request}")
 
         # Проверяем, не обращается ли клиент к самому прокси
-        if 'Host: 72.56.72.131:5050' in request:
+        if f'Host: {server_ip}:5050' in request:
             response = """HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n
                     <html><body><h1>Proxy Server Running</h1>
                     <p>Configure your browser to use this proxy, don't access it directly.</p>
@@ -121,7 +225,9 @@ async def handle_client_proxy(reader, writer):
 
 
 async def forward_data(reader, writer):
-    """Перенаправление данных в обе стороны"""
+    """
+    Перенаправление данных в обе стороны
+    """
     try:
         while True:
             try:
@@ -136,6 +242,50 @@ async def forward_data(reader, writer):
             await writer.drain()
     except asyncio.CancelledError:
         pass
+
+
+async def is_client_authorized(client_ip: str, client_id: str) -> bool:
+    """
+    Проверяем, авторизован ли клиент для подключения
+    """
+    # Проверяем по полному client_id (IP:PORT)
+    if client_id in authorized_clients:
+        return True
+
+    # Проверяем по IP (если авторизован по IP)
+    for auth_id in authorized_clients:
+        if ':' in auth_id:
+            auth_ip = auth_id.split(':')[0]
+            if auth_ip == client_ip:
+                return True
+
+    return False
+
+
+async def get_active_connections() -> Dict[str, Dict]:
+    """
+    Получаем информацию об активных подключениях
+    """
+    connections_info = {}
+
+    for client_id, writer in active_connections.items():
+        try:
+            addr = writer.get_extra_info('peername')
+            sock = writer.get_extra_info('socket')
+
+            connections_info[client_id] = {
+                'ip': addr[0],
+                'port': addr[1],
+                'socket_family': sock.family if sock else None,
+                'socket_type': sock.type if sock else None,
+                'authorized': client_id in authorized_clients or
+                              any(auth_id.split(':')[0] == addr[0]
+                                  for auth_id in authorized_clients if ':' in auth_id)
+            }
+        except Exception as e:
+            connections_info[client_id] = {'error': str(e)}
+
+    return connections_info
 
 
 async def start_proxy_server(host: str='localhost', port: int=5050):
