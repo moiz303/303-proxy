@@ -1,4 +1,4 @@
-import os
+import os, sys
 import hashlib
 import secrets
 from datetime import datetime, timedelta
@@ -7,6 +7,7 @@ import jwt
 from flask import request
 
 from database import db_manager
+sys.path.append('/app')
 from proxy_logic.models import User, Extension, ClientConnection
 
 
@@ -14,9 +15,8 @@ class ExtensionAuthManager:
     """
     Менеджер аутентификации для browser extension
     """
-
     def __init__(self):
-        self.secret_key = os.environ.get('AUTH_SECRET_KEY', 'your-super-secret-key-change-in-production')
+        self.secret_key = os.environ.get('AUTH_SECRET_KEY')
         self.token_expiry = timedelta(hours=24)
         self.rate_limit = {}
 
@@ -215,7 +215,7 @@ class ExtensionAuthManager:
             # Создание токена
             access_token = self.create_access_token(user.id, extension.id)
 
-            # Сохранение сессии в БД (опционально)
+            # Сохранение сессии в БД
             session_obj = ClientConnection(
                 id=secrets.token_urlsafe(32),
                 user_id=user.id,
@@ -446,7 +446,6 @@ def token_required(f):
     return decorated
 
 
-# Декоратор для проверки API ключа
 def api_key_required(f):
     """
     Декоратор для проверки API ключа

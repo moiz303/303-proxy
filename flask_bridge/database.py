@@ -1,12 +1,13 @@
-import os
+import os, sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+sys.path.append('/app')
 from proxy_logic.models import Base
 
 
 class DatabaseManager:
     def __init__(self, database_url: str = None):
-        self.database_url = database_url or os.getenv('DATABASE_URL')
+        self.database_url = database_url or os.getenv('DB_URL')
         self.engine = create_engine(self.database_url)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
@@ -15,6 +16,3 @@ class DatabaseManager:
 
     def get_session(self):
         return self.SessionLocal()
-
-
-db_manager = DatabaseManager()

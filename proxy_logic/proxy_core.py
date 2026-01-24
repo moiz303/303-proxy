@@ -3,10 +3,11 @@ import datetime as dt
 import os
 from typing import Dict, Set, Optional
 
-from database import db_manager
+from database import DatabaseManager
 from models import ClientConnection
 
 server_ip = os.getenv('SERVER_IP')
+database_url = os.getenv('DB_URL')
 
 active_connections: Dict[str, asyncio.StreamWriter] = {}
 authorized_clients: Set[str] = set()
@@ -26,6 +27,7 @@ async def connect_client(client_id: str, user_id: str,
     print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} авторизован для подключения")
 
     try:
+        db_manager = DatabaseManager(database_url)
         session = db_manager.get_session()
 
         connection = ClientConnection(
@@ -90,6 +92,7 @@ async def disconnect_client(client_id: str, user_id: Optional[str] = None) -> bo
         print(f"{dt.datetime.now().strftime('%H:%M:%S')} Клиент {client_id} удален из авторизованных")
 
     try:
+        db_manager = DatabaseManager(database_url)
         session = db_manager.get_session()
 
         query = session.query(ClientConnection).filter(
