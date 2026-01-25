@@ -6,7 +6,7 @@ from typing import Dict, Optional, Tuple
 import jwt
 from flask import request
 
-from database import db_manager
+from database import DatabaseManager
 sys.path.append('/app')
 from proxy_logic.models import User, Extension, ClientConnection
 
@@ -17,6 +17,7 @@ class ExtensionAuthManager:
     """
     def __init__(self):
         self.secret_key = os.environ.get('AUTH_SECRET_KEY')
+        self.db_manager = DatabaseManager(os.getenv('DB_URL'))
         self.token_expiry = timedelta(hours=24)
         self.rate_limit = {}
 
@@ -70,7 +71,7 @@ class ExtensionAuthManager:
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
 
             # Дополнительная проверка в БД
-            session = db_manager.get_session()
+            session = self.db_manager.get_session()
             try:
                 user = session.query(User).filter(
                     User.id == payload['user_id'],
@@ -134,7 +135,7 @@ class ExtensionAuthManager:
         """
         Регистрация нового пользователя и extension
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             # Проверка существования пользователя
             existing_user = session.query(User).filter(User.email == email).first()
@@ -188,7 +189,7 @@ class ExtensionAuthManager:
         if not self.check_rate_limit(email):
             raise Exception("Too many attempts. Please try again later.")
 
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             # Поиск пользователя
             user = session.query(User).filter(
@@ -252,7 +253,7 @@ class ExtensionAuthManager:
         """
         Выход пользователя из системы
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             if session_id:
                 # Удаляем конкретную сессию
@@ -279,7 +280,7 @@ class ExtensionAuthManager:
         """
         Валидация API ключа extension
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             extension = session.query(Extension).filter(
                 Extension.api_key == api_key,
@@ -304,7 +305,7 @@ class ExtensionAuthManager:
         """
         Получение всех extensions пользователя
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             extensions = session.query(Extension).filter(
                 Extension.user_id == user_id,
@@ -330,7 +331,7 @@ class ExtensionAuthManager:
         """
         Обновление пароля пользователя
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             user = session.query(User).filter(
                 User.id == user_id,
@@ -365,7 +366,7 @@ class ExtensionAuthManager:
         """
         Деактивация extension
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             query = session.query(Extension).filter(
                 Extension.id == extension_id
@@ -394,7 +395,7 @@ class ExtensionAuthManager:
         """
         Очистка просроченных сессий
         """
-        session = db_manager.get_session()
+        session = self.db_manager.get_session()
         try:
             result = session.query(ClientConnection).filter(
                 ClientConnection.expires_at < datetime.utcnow()

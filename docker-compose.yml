@@ -34,10 +34,10 @@ services:
 
   # 2. Основной прокси сервер
   proxy_logic:
-    image: moiz303/proxy-core:${CORE_VERSION}
-    #build:
-      #context: .
-      #dockerfile: /proxy_logic/Dockerfile
+    #image: moiz303/proxy-core:${CORE_VERSION}
+    build:
+      context: .
+      dockerfile: /proxy_logic/Dockerfile
     ports:
       - "5050:5050"
     environment:
@@ -50,15 +50,16 @@ services:
 
   # 3. Flask API
   flask_bridge:
-    image: moiz303/proxy-flask:${FLASK_VERSION}
-    #build:
-      #context: .
-      #dockerfile: /flask_bridge/Dockerfile
-    environment:
-      - proxy_logic_URL=http://proxy_logic:5050
-      - FLASK_ENV=production
+    #image: moiz303/proxy-flask:${FLASK_VERSION}
+    build:
+      context: .
+      dockerfile: /flask_bridge/Dockerfile
     env_file:
       - .env
+    environment:
+      - DB_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - proxy_logic_URL=http://proxy_logic:5050
+      - FLASK_ENV=production
     depends_on:
       - proxy_logic
     restart: unless-stopped
@@ -86,8 +87,6 @@ services:
 networks:
   extension_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_SUBNET}
+
 volumes:
   postgres_data:
