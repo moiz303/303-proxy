@@ -31,10 +31,10 @@ async def connect_client(client_id: str, user_id: str,
         session = db_manager.get_session()
 
         connection = ClientConnection(
-            client_id=client_id,  # ← Уникальный ID клиента
+            id=client_id,  # ← Уникальный ID сессии подключения
             client_ip=client_ip,  # ← Больше информации о пользователе
-            user_id=user_id,
-            extension_id=extension_id
+            user_id=user_id,  # ← Уникальный ID пользователя
+            extension_id=extension_id  # ← Уникальный ID установленного расширения
         )
         session.add(connection)
         session.commit()
@@ -96,7 +96,7 @@ async def disconnect_client(client_id: str, user_id: Optional[str] = None) -> bo
         session = db_manager.get_session()
 
         query = session.query(ClientConnection).filter(
-            ClientConnection.client_id == client_id,  # ← Ищем по client_id
+            ClientConnection.extension_id == client_id,  # ← Ищем по client_id
             ClientConnection.is_active == True
         )
 

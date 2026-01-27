@@ -179,9 +179,9 @@ def handle_auth():
             return jsonify({"status": "error", "message": "Email and password are required"}), 400
 
         # Авторизуем пользователя
-        success, user_data = eam.authenticate_user(email, password, client_ip)
+        user_data = eam.authenticate_user(email, password, client_ip)
 
-        if success:
+        if user_data['message'] == 'Login successful':
             # Создаём токен
             user_id = user_data['user_id']
             extension_id = user_data['extension_id']

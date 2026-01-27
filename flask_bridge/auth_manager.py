@@ -18,7 +18,7 @@ class ExtensionAuthManager:
     def __init__(self):
         self.secret_key = os.environ.get('AUTH_SECRET_KEY')
         self.db_manager = DatabaseManager(os.getenv('DB_URL'))
-        self.token_expiry = timedelta(hours=24)
+        self.token_expiry = timedelta(hours=12)
         self.rate_limit = {}
 
     def generate_salt(self) -> str:
@@ -221,8 +221,8 @@ class ExtensionAuthManager:
                 id=secrets.token_urlsafe(32),
                 user_id=user.id,
                 extension_id=extension.id,
-                expires_at=datetime.utcnow() + self.token_expiry,
-                ip_address=client_ip
+                connected_at=datetime.utcnow(),
+                client_ip=client_ip
             )
             session.add(session_obj)
             session.commit()
@@ -398,7 +398,7 @@ class ExtensionAuthManager:
         session = self.db_manager.get_session()
         try:
             result = session.query(ClientConnection).filter(
-                ClientConnection.expires_at < datetime.utcnow()
+                ClientConnection.connected_at + self.token_expiry < datetime.utcnow()
             ).delete()
             session.commit()
             return result

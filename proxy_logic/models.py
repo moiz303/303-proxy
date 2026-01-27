@@ -32,7 +32,7 @@ class Extension(Base):
 
 class ClientConnection(Base):
     __tablename__ = 'client_connections'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String(64), primary_key=True)
     client_ip = Column(String(45), nullable=True, index=True)
     user_id = Column(String(64), ForeignKey('users.id'), nullable=False, index=True)
     extension_id = Column(String(64), ForeignKey('extensions.id'), nullable=False, index=True)

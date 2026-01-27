@@ -9,10 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let autoRefreshInterval = null;
 
     // Конфигурация из config.js
-    const config = window.CONFIG || {};
-
-    // Инициализация
-    await initExtension();
+    const config = CONFIG || {};
 
     // Обработчики вкладок для авторизованных пользователей
     const tabs = document.querySelectorAll('.tab');
@@ -100,6 +97,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
         document.getElementById('toggle-auth-btn').style.display = 'block';
+
+        // Находим кнопку переключения на регистрацию
+        const toggleAuthBtn = document.getElementById('toggle-auth-btn');
+        if (toggleAuthBtn) {
+            toggleAuthBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                showRegisterForm();
+            });
+        }
+
+        // Находим ссылку "Вернуться к входу"
+        const backToLoginLink = document.querySelector('a[href="#"]');
+        if (backToLoginLink && backToLoginLink.textContent.includes('Вернуться к входу')) {
+            backToLoginLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showLoginForm();
+            });
+        }
     }
 
     // Функция обновления информации о пользователе
@@ -826,27 +841,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (toggleBtn) toggleBtn.style.display = 'block';
     };
 
-    // Добавляем обработчики событий после загрузки DOM
-    document.addEventListener('DOMContentLoaded', () => {
-        // Находим кнопку переключения на регистрацию
-        const toggleAuthBtn = document.getElementById('toggle-auth-btn');
-        if (toggleAuthBtn) {
-            toggleAuthBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showRegisterForm();
-            });
-        }
-
-        // Находим ссылку "Вернуться к входу"
-        const backToLoginLink = document.querySelector('a[href="#"]');
-        if (backToLoginLink && backToLoginLink.textContent.includes('Вернуться к входу')) {
-            backToLoginLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                showLoginForm();
-            });
-        }
-    });
-
-    // Инициализация при загрузке
+    // Инициализация
+    initEventListeners();
     await initExtension();
 });
