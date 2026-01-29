@@ -11,25 +11,82 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Конфигурация из config.js
     const config = CONFIG || {};
 
-    // Обработчики вкладок для авторизованных пользователей
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabName = tab.dataset.tab;
+    // Инициализация вкладок для авторизованных пользователей
+    function initAuthorizedTabs() {
+        console.log('Инициализация вкладок...');
 
-            // Обновляем активные вкладки
-            tabs.forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const tabs = document.querySelectorAll('#authorized-view .tab');
+        const tabContents = document.querySelectorAll('#authorized-view .tab-content');
 
-            tab.classList.add('active');
-            document.getElementById(`${tabName}-tab`).classList.add('active');
+        if (tabs.length === 0) {
+            console.error('Вкладки не найдены!');
+            return;
+        }
 
-            // Если перешли на вкладку мониторинга, загружаем подключения
-            if (tabName === 'monitor') {
-                loadConnections();
+        // Скрываем все содержимое вкладок сначала
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+            content.style.display = 'none';
+        });
+
+        // Показываем только первую вкладку (Подключение) по умолчанию
+        const firstTabContent = document.getElementById('connect-tab');
+        if (firstTabContent) {
+            firstTabContent.classList.add('active');
+            firstTabContent.style.display = 'block';
+            console.log('Показана вкладка Подключение');
+        }
+
+        // Активируем первую вкладку
+        tabs.forEach((tab, index) => {
+            tab.classList.remove('active');
+            if (index === 0) {
+                tab.classList.add('active');
+                console.log('Активирована первая вкладка:', tab.textContent);
             }
         });
-    });
+
+        // Добавляем обработчики клика на вкладки
+        tabs.forEach(tab => {
+            // Удаляем старые обработчики чтобы избежать дублирования
+            const newTab = tab.cloneNode(true);
+            tab.parentNode.replaceChild(newTab, tab);
+
+            newTab.addEventListener('click', handleTabClick);
+        });
+    }
+
+    // Обработчик клика по вкладке
+    function handleTabClick(event) {
+        const tab = event.currentTarget;
+        const tabName = tab.dataset.tab;
+
+        console.log('Клик по вкладке:', tabName);
+
+        // Получаем все элементы вкладок
+        const tabs = document.querySelectorAll('#authorized-view .tab');
+        const tabContents = document.querySelectorAll('#authorized-view .tab-content');
+
+        // Обновляем активные вкладки
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => {
+            c.classList.remove('active');
+            c.style.display = 'none';
+        });
+
+        tab.classList.add('active');
+        const activeContent = document.getElementById(`${tabName}-tab`);
+        if (activeContent) {
+            activeContent.classList.add('active');
+            activeContent.style.display = 'block';
+        }
+
+        // Если перешли на вкладку мониторинга, загружаем подключения
+        if (tabName === 'monitor') {
+            console.log('Загрузка подключений для вкладки мониторинга');
+            loadConnections();
+        }
+    }
 
     async function initExtension() {
         try {
@@ -54,11 +111,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Генерируем Client ID если его нет
                 if (!result.clientId) {
                     const clientId = generateClientId();
-                    document.getElementById('clientId').value = clientId;
                     await chrome.storage.local.set({ clientId: clientId });
-                } else {
-                    document.getElementById('clientId').value = result.clientId;
                 }
+
+                // Инициализируем вкладки после показа авторизованного вида
+                setTimeout(() => {
+                    initAuthorizedTabs();
+                }, 50);
+
             } else {
                 // Если пользователь не авторизован, показываем неавторизованный вид
                 showUnauthorizedView();
@@ -84,6 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция для показа авторизованного вида
     function showAuthorizedView() {
+        console.log('Переключение на авторизованный вид');
         document.getElementById('unauthorized-view').style.display = 'none';
         document.getElementById('authorized-view').style.display = 'block';
         updateConnectButtonState();
@@ -91,30 +152,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция для показа неавторизованного вида
     function showUnauthorizedView() {
-        document.getElementById('unauthorized-view').style.display = 'block';
+        console.log('Переключение на неавторизованный вид');
         document.getElementById('authorized-view').style.display = 'none';
+        document.getElementById('unauthorized-view').style.display = 'block';
         // Показываем форму входа по умолчанию
         document.getElementById('login-form').style.display = 'block';
         document.getElementById('register-form').style.display = 'none';
         document.getElementById('toggle-auth-btn').style.display = 'block';
-
-        // Находим кнопку переключения на регистрацию
-        const toggleAuthBtn = document.getElementById('toggle-auth-btn');
-        if (toggleAuthBtn) {
-            toggleAuthBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showRegisterForm();
-            });
-        }
-
-        // Находим ссылку "Вернуться к входу"
-        const backToLoginLink = document.querySelector('a[href="#"]');
-        if (backToLoginLink && backToLoginLink.textContent.includes('Вернуться к входу')) {
-            backToLoginLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                showLoginForm();
-            });
-        }
+        document.getElementById('toggle-auth-btn').textContent = '📝 Создать новый аккаунт';
     }
 
     // Функция обновления информации о пользователе
@@ -281,6 +326,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 currentToken = result.access_token;
 
+                // Генерируем Client ID если его еще нет
+                const { clientId: existingClientId } = await chrome.storage.local.get(['clientId']);
+                if (!existingClientId) {
+                    const clientId = generateClientId();
+                    await chrome.storage.local.set({ clientId: clientId });
+                }
+
                 // Сохраняем в storage
                 await chrome.storage.local.set({
                     currentUser: currentUser,
@@ -311,6 +363,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showAuthorizedView();
                 updateUserInfo();
 
+                // Инициализируем вкладки
+                setTimeout(() => {
+                    initAuthorizedTabs();
+                }, 50);
+
                 showAlert('Авторизация успешна!', 'success');
 
             } else {
@@ -327,7 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция выхода
     window.logoutUser = async function() {
-        const { currentUser } = await chrome.storage.local.get(['currentUser']);
+        const result = await chrome.storage.local.get(['currentUser']);
 
         if (!confirm('Вы уверены, что хотите выйти?')) {
             return;
@@ -336,27 +393,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         showLoading(true);
 
         try {
-            // Отправляем запрос на выход если есть соединение
-            if (config.API_URL && currentUser?.session_id) {
-                await fetch(`${config.API_URL}/api/logout`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentUser.session_id,
-                        user_id: currentUser.user_id
-                    })
-                });
+            // 1. Сначала очищаем локальные данные (но сохраняем копию для запросов)
+            const userCopy = result.currentUser;
+
+            // 2. Отправляем запрос на выход если есть соединение (если сервер доступен)
+            if (config.API_URL && userCopy?.session_id) {
+                try {
+                    // Используем fetch с таймаутом
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                    await fetch(`${config.API_URL}/api/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: userCopy.session_id,
+                            user_id: userCopy.user_id
+                        }),
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+                } catch (serverError) {
+                    // Игнорируем ошибки сервера при логауте
+                    console.log('Сервер недоступен при выходе:', serverError.message);
+                }
             }
 
-            // Отключаемся от сервера если подключены
+            // 3. Отключаемся от сервера если подключены
             const { isConnected } = await chrome.storage.local.get('isConnected');
             if (isConnected) {
-                await disconnectFromServer();
+                try {
+                    await disconnectFromServer();
+                } catch (proxyError) {
+                    console.log('Ошибка при отключении прокси:', proxyError.message);
+                }
             }
 
-            // Очищаем данные
+            // 4. Очищаем данные (ТОЛЬКО после всех операций)
             await chrome.storage.local.remove([
                 'currentUser',
                 'currentToken',
@@ -367,14 +443,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentUser = null;
             currentToken = null;
 
-            // Переключаем на неавторизованный вид
+            // 5. Переключаем на неавторизованный вид
             showUnauthorizedView();
 
+            // 6. Показываем уведомление
             showAlert('Вы успешно вышли из системы', 'success');
 
         } catch (error) {
-            console.error('Ошибка при выходе:', error);
-            showAlert('Ошибка при выходе: ' + error.message, 'error');
+            console.error('Критическая ошибка при выходе:', error);
+
+            // Даже при ошибке очищаем локальные данные
+            try {
+                await chrome.storage.local.remove([
+                    'currentUser',
+                    'currentToken',
+                    'isConnected',
+                    'clientId'
+                ]);
+
+                currentUser = null;
+                currentToken = null;
+                showUnauthorizedView();
+                showAlert('Произошла ошибка при выходе, попробуйте снова', 'error');
+            } catch (cleanupError) {
+                console.error('Ошибка при очистке данных:', cleanupError);
+            }
         } finally {
             showLoading(false);
         }
@@ -399,11 +492,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция подключения к серверу
     async function connectToServer() {
-        const clientId = document.getElementById('clientId').value.trim();
+        // Получаем сохраненный clientId или генерируем новый
+        const { clientId: savedClientId } = await chrome.storage.local.get(['clientId']);
+        let clientId = savedClientId;
 
         if (!clientId) {
-            showAlert('Введите идентификатор устройства', 'error');
-            return;
+            clientId = generateClientId();
+            await chrome.storage.local.set({ clientId: clientId });
         }
 
         if (!currentToken) {
@@ -714,7 +809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const connectionsList = document.getElementById('connectionsList');
         const totalConnections = document.getElementById('totalConnections');
 
-        if (!data.active_connections || Object.keys(data.active_connections).length === 0) {
+        if (!data.active_connections || Object.keys(data.total) === 0) {
             connectionsList.innerHTML = `
                 <p style="text-align: center; color: #666; padding: 20px;">
                     Нет активных подключений
@@ -779,46 +874,103 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    // Инициализация обработчиков событий
     function initEventListeners() {
-        // Кнопка входа
-        const loginBtn = document.getElementById('login-btn');
-        if (loginBtn) {
-            loginBtn.addEventListener('click', loginUser);
-        }
+        // Используем делегирование событий для всех кнопок
+        document.addEventListener('click', (e) => {
+            // Кнопка входа
+            if (e.target && e.target.id === 'login-btn') {
+                e.preventDefault();
+                loginUser();
+            }
 
-        // Кнопка регистрации
-        const registerBtn = document.getElementById('register-btn');
-        if (registerBtn) {
-            registerBtn.addEventListener('click', registerUser);
-        }
+            // Кнопка регистрации
+            if (e.target && e.target.id === 'register-btn') {
+                e.preventDefault();
+                registerUser();
+            }
 
-        // Кнопка выхода
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', logoutUser);
-        }
+            // Кнопка выхода
+            if (e.target && e.target.id === 'logout-btn') {
+                e.preventDefault();
+                logoutUser();
+            }
 
-        // Кнопка подключения/отключения
-        const connectBtn = document.getElementById('connectButton');
-        if (connectBtn) {
-            connectBtn.addEventListener('click', toggleConnection);
-        }
+            // Кнопка подключения/отключения
+            if (e.target && e.target.id === 'connectButton') {
+                e.preventDefault();
+                toggleConnection();
+            }
 
-        // Кнопки мониторинга
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', loadConnections);
-        }
+            // Кнопки мониторинга
+            if (e.target && e.target.id === 'refresh-btn') {
+                e.preventDefault();
+                loadConnections();
+            }
 
-        const autoRefreshBtn = document.getElementById('auto-refresh-btn');
-        if (autoRefreshBtn) {
-            autoRefreshBtn.addEventListener('click', startAutoRefresh);
-        }
+            if (e.target && e.target.id === 'auto-refresh-btn') {
+                e.preventDefault();
+                startAutoRefresh();
+            }
 
-        const stopRefreshBtn = document.getElementById('stop-refresh-btn');
-        if (stopRefreshBtn) {
-            stopRefreshBtn.addEventListener('click', stopAutoRefresh);
-        }
+            if (e.target && e.target.id === 'stop-refresh-btn') {
+                e.preventDefault();
+                stopAutoRefresh();
+            }
+
+            // Кнопка переключения на регистрацию
+            if (e.target && e.target.id === 'toggle-auth-btn') {
+                e.preventDefault();
+                const loginForm = document.getElementById('login-form');
+                const registerForm = document.getElementById('register-form');
+                const toggleBtn = e.target;
+
+                if (loginForm.style.display !== 'none') {
+                    // Переключаем на регистрацию
+                    loginForm.style.display = 'none';
+                    registerForm.style.display = 'block';
+                    toggleBtn.textContent = '← Войти в аккаунт';
+                } else {
+                    // Переключаем на вход
+                    loginForm.style.display = 'block';
+                    registerForm.style.display = 'none';
+                    toggleBtn.textContent = '📝 Создать новый аккаунт';
+                }
+            }
+
+            // Ссылка "Вернуться к входу" в форме регистрации
+            if (e.target && e.target.tagName === 'A' && e.target.textContent.includes('Вернуться к входу')) {
+                e.preventDefault();
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+                const toggleBtn = document.getElementById('toggle-auth-btn');
+                if (toggleBtn) {
+                    toggleBtn.style.display = 'block';
+                    toggleBtn.textContent = '📝 Создать новый аккаунт';
+                }
+            }
+        });
+
+        // Обработка Enter в формах
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                // Форма входа
+                if (document.getElementById('login-form').style.display !== 'none') {
+                    if (e.target.id === 'email' || e.target.id === 'password') {
+                        e.preventDefault();
+                        loginUser();
+                    }
+                }
+
+                // Форма регистрации
+                if (document.getElementById('register-form').style.display !== 'none') {
+                    if (e.target.id === 'regEmail' || e.target.id === 'regPassword' || e.target.id === 'confirmPassword') {
+                        e.preventDefault();
+                        registerUser();
+                    }
+                }
+            }
+        });
     }
 
     window.showRegisterForm = function() {

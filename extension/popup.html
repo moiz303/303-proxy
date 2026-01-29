@@ -101,6 +101,32 @@
             color: white;
         }
 
+        .tabs {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn-tab {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-align: center;
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
         .status {
             text-align: center;
             padding: 15px;
@@ -319,8 +345,8 @@
         <div id="authorized-view" style="display: none;">
             <!-- Панель вкладок для авторизованных пользователей -->
             <div class="tabs">
-                <div class="tab active" data-tab="connect">Подключение</div>
-                <div class="tab" data-tab="monitor">Мониторинг</div>
+                <div class="tab btn-tab" data-tab="connect">Подключение</div>
+                <div class="tab btn-tab" data-tab="monitor">Мониторинг</div>
             </div>
 
             <!-- Вкладка подключения для авторизованных -->
@@ -340,15 +366,6 @@
                         <button id="logout-btn" class="btn btn-danger">
                             🚪 Выйти
                         </button>
-                    </div>
-
-                    <!-- Client ID поле (единственное, что нужно вводить) -->
-                    <div class="form-group">
-                        <label for="clientId">Идентификатор устройства:</label>
-                        <input type="text" id="clientId" placeholder="Например: мой-ноутбук">
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                            Укажите название устройства для идентификации
-                        </div>
                     </div>
 
                     <!-- Статус подключения -->
