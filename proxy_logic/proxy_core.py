@@ -96,7 +96,7 @@ async def disconnect_client(client_id: str, user_id: Optional[str] = None) -> bo
         session = db_manager.get_session()
 
         query = session.query(ClientConnection).filter(
-            ClientConnection.extension_id == client_id,  # ← Ищем по client_id
+            ClientConnection.client_ip == client_ip,  # ← Ищем по client_ip
             ClientConnection.is_active == True
         )
 

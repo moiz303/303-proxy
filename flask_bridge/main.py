@@ -108,6 +108,7 @@ def handle_disconnect():
 
 
 @app.route('/health', methods=['GET'])
+@token_required
 def health_check():
     """
     Получение списка активных подключений
@@ -115,7 +116,7 @@ def health_check():
     try:
         connections = run_async(get_active_connections())
 
-        # Фильтруем по user_id (нужна логика сопоставления client_id -> user_id)
+        # Фильтруем по client_id
         user_connections = {
             cid: info for cid, info in connections.items()
         }
