@@ -94,12 +94,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function enableProxy(host = null, port = null) {
     let proxyHost, proxyPort;
 
-    // Приоритеты:
-    // 1. Параметры функции (переданы из popup)
-    // 2. PROXY_URL из конфига (http://proxy-xxxx.nip.io:5050)
-    // 3. IP_ADDRESS из конфига + порт 5050
-    // 4. Значения по умолчанию
-
     if (host && port) {
         // Параметры переданы из popup
         proxyHost = host;
@@ -107,10 +101,10 @@ async function enableProxy(host = null, port = null) {
         console.log('Using proxy from popup parameters:', proxyHost, ':', proxyPort);
     }
     else if (config.PROXY_URL) {
-        // Используем PROXY_URL из конфига (http://proxy-xxxx.nip.io:5050)
+        // Используем PROXY_URL из конфига
         try {
             const proxyUrl = new URL(config.PROXY_URL);
-            proxyHost = proxyUrl.hostname;  // proxy-xxxx.nip.io
+            proxyHost = proxyUrl.hostname;
             proxyPort = proxyUrl.port || 5050;
             console.log('Using PROXY_URL from config:', config.PROXY_URL);
         } catch (e) {

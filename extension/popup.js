@@ -13,8 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Инициализация вкладок для авторизованных пользователей
     function initAuthorizedTabs() {
-        console.log('Инициализация вкладок...');
-
         const tabs = document.querySelectorAll('#authorized-view .tab');
         const tabContents = document.querySelectorAll('#authorized-view .tab-content');
 
@@ -34,7 +32,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (firstTabContent) {
             firstTabContent.classList.add('active');
             firstTabContent.style.display = 'block';
-            console.log('Показана вкладка Подключение');
         }
 
         // Активируем первую вкладку
@@ -42,7 +39,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             tab.classList.remove('active');
             if (index === 0) {
                 tab.classList.add('active');
-                console.log('Активирована первая вкладка:', tab.textContent);
             }
         });
 
@@ -60,8 +56,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function handleTabClick(event) {
         const tab = event.currentTarget;
         const tabName = tab.dataset.tab;
-
-        console.log('Клик по вкладке:', tabName);
 
         // Получаем все элементы вкладок
         const tabs = document.querySelectorAll('#authorized-view .tab');
@@ -83,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Если перешли на вкладку мониторинга, загружаем подключения
         if (tabName === 'monitor') {
-            console.log('Загрузка подключений для вкладки мониторинга');
             loadConnections();
         }
     }
@@ -144,7 +137,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция для показа авторизованного вида
     function showAuthorizedView() {
-        console.log('Переключение на авторизованный вид');
         document.getElementById('unauthorized-view').style.display = 'none';
         document.getElementById('authorized-view').style.display = 'block';
         updateConnectButtonState();
@@ -152,7 +144,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Функция для показа неавторизованного вида
     function showUnauthorizedView() {
-        console.log('Переключение на неавторизованный вид');
         document.getElementById('authorized-view').style.display = 'none';
         document.getElementById('unauthorized-view').style.display = 'block';
         // Показываем форму входа по умолчанию
@@ -484,8 +475,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await connectToServer();
             }
         } catch (error) {
-            console.error('Ошибка:', error);
-            showAlert('Ошибка: ' + error.message, 'error');
+            console.error('Ошибка переключения соединения:', error);
+            // Не показываем алерт здесь, если он уже показан в connectToServer/disconnectFromServer
+            if (!error.message.includes('уже показано')) {
+                showAlert('Ошибка: ' + error.message, 'error');
+            }
             updateUI(false);
         }
     };
@@ -493,7 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Функция подключения к серверу
     async function connectToServer() {
         // Получаем сохраненный clientId или генерируем новый
-        const { clientId: savedClientId } = await chrome.storage.local.get(['clientId']);
+        const { clientId: savedClientId, isConnected: currentIsConnected } = await chrome.storage.local.get(['clientId', 'isConnected']);
         let clientId = savedClientId;
 
         if (!clientId) {
@@ -508,6 +502,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!config.API_URL) {
             showAlert('API URL не настроен в конфигурации', 'error');
+            return;
+        }
+
+        // Если уже подключены, просто показываем сообщение
+        if (currentIsConnected) {
+            showAlert('Уже подключено к серверу', 'info');
             return;
         }
 
@@ -573,7 +573,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     proxyPort: parseInt(proxyPort)
                 });
 
-                showAlert(result.message, result.status === 'success' ? 'success' : 'warning');
+                if (result.message) {
+                    if (result.message.includes('already authorized')){
+                        // Это не ошибка, просто информационное сообщение
+                        showAlert('Подключено', 'success');
+                        await chrome.storage.local.set({ isConnected: true });
+                    } else {
+                        showAlert(result.message, 'success');
+                    }
+                }
                 updateUI(true);
 
             } else {
@@ -619,9 +627,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
 
                     const result = await response.json();
-                    showAlert(result.message || 'Отключено от сервера', 'success');
 
+                    // Проверяем, не является ли это "информационным" сообщением
+                    if (result.message && result.message.includes('not found')) {
+                        showAlert('Соединение закрыто', 'success');
+                    } else {
+                        showAlert(result.message || 'Отключено от сервера', 'success');
+                    }
                 } catch (serverError) {
+                    // Игнорируем или логируем, но не показываем как ошибку
                     console.log('Сервер недоступен при отключении:', serverError.message);
                 }
             }
@@ -730,9 +744,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         alertDiv.className = `alert alert-${type}`;
         alertDiv.style.display = 'block';
 
-        setTimeout(() => {
+        // Очищаем предыдущий таймаут если он есть
+        if (showAlert.timeoutId) {
+            clearTimeout(showAlert.timeoutId);
+        }
+
+        // Устанавливаем новый таймаут
+        showAlert.timeoutId = setTimeout(() => {
             alertDiv.style.display = 'none';
-        }, 3000);
+            showAlert.timeoutId = null;
+        }, 1750);
     }
 
     function showLoading(show, isMonitor = false) {
@@ -934,18 +955,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Переключаем на вход
                     loginForm.style.display = 'block';
                     registerForm.style.display = 'none';
-                    toggleBtn.textContent = '📝 Создать новый аккаунт';
-                }
-            }
-
-            // Ссылка "Вернуться к входу" в форме регистрации
-            if (e.target && e.target.tagName === 'A' && e.target.textContent.includes('Вернуться к входу')) {
-                e.preventDefault();
-                document.getElementById('login-form').style.display = 'block';
-                document.getElementById('register-form').style.display = 'none';
-                const toggleBtn = document.getElementById('toggle-auth-btn');
-                if (toggleBtn) {
-                    toggleBtn.style.display = 'block';
                     toggleBtn.textContent = '📝 Создать новый аккаунт';
                 }
             }
